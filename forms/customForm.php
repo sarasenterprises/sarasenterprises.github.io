@@ -1,63 +1,58 @@
 <?php
-
-// Import the Postmark Client Class:
 require_once('../vendor/autoload.php');
 use Postmark\PostmarkClient;
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    // Validate inputs
+    // Sanitize input
     $name = strip_tags(trim($_POST["name"]));
     $email = filter_var(trim($_POST["email"]), FILTER_SANITIZE_EMAIL);
     $subject = strip_tags(trim($_POST["subject"]));
     $message = trim($_POST["message"]);
 
+    // Basic validation
     if (empty($name) || empty($subject) || empty($message) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        // Invalid input
         echo "Please complete the form and try again.";
         exit;
     }
 
-    // Initialize Postmark client
+    // Postmark config
     $client = new PostmarkClient("ad4cd163-6f2b-463c-bdf8-8b5682a8935a");
-    $client::$VERIFY_SSL = false;
-    $fromEmail = "shreyas.habade@stonybrook.edu";
-    $toEmail = "shabade@cs.stonybrook.edu";
-    $htmlBody = "<strong>Name: </strong>$name<br><strong>Email: </strong>$email<br><br><strong>Message:</strong><br>$message";
-    $textBody = "";
-    $tag = "example-email-tag";
-    $trackOpens = true;
-    $trackLinks = "None";
-    $messageStream = "outbound";
+    $fromEmail = "";
+    $toEmail = "shreyas.habade18@gmail.com";
 
-    // Handle attachments
+    $htmlBody = "<strong>Name:</strong> $name<br><strong>Email:</strong> $email<br><br><strong>Message:</strong><br>$message";
+    $textBody = strip_tags($htmlBody);
     $attachments = [];
 
-    if (isset($_FILES["attachment"]) && $_FILES["attachment"]["error"] == 0) {
+    // File attachment
+    if (isset($_FILES["attachment"]) && $_FILES["attachment"]["error"] == UPLOAD_ERR_OK) {
+        $fileTmp = $_FILES["attachment"]["tmp_name"];
+        $fileName = basename($_FILES["attachment"]["name"]);
+        $fileType = mime_content_type($fileTmp);
+        $fileContent = base64_encode(file_get_contents($fileTmp));
+
         $attachments[] = [
-            'Name' => $_FILES["attachment"]["name"],
-            'Content' => base64_encode(file_get_contents($_FILES["attachment"]["tmp_name"])),
-            'ContentType' => mime_content_type($_FILES["attachment"]["tmp_name"])
+            'Name' => $fileName,
+            'Content' => $fileContent,
+            'ContentType' => $fileType
         ];
     }
 
-    // Send an email
+    // Attempt to send
     try {
-        $sendResult = $client->sendEmail(
+        $client->sendEmail(
             $fromEmail,
             $toEmail,
             $subject,
             $htmlBody,
             $textBody,
-            $tag,
-            $trackOpens,
-            NULL, // Reply To
-            NULL, // CC
-            NULL, // BCC
-            NULL, // Header array
-            $attachments, // Attachment array
-            $trackLinks,
-            NULL, // Metadata array
-            $messageStream
+            "contact-form",
+            true, // trackOpens
+            null, null, null, null, // ReplyTo, CC, BCC, Headers
+            $attachments,
+            "None", // trackLinks
+            null,   // Metadata
+            "outbound"
         );
 
         echo "Your message has been sent successfully.";
@@ -65,5 +60,4 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         echo "There was a problem sending your message. Please try again. Error: " . $e->getMessage();
     }
 }
-
 ?>
